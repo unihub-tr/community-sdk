@@ -1,0 +1,76 @@
+# Release pipeline for unihub-community-sdk, run only in the public mirror unihub-tr/community-sdk.
+#
+# - push to main  → verify: install, typecheck, unit tests, build, release check.
+# - push of v*    → verify, then publish to npm through trusted publishing (OIDC). There is no
+#                   npm token anywhere. The publish job waits for approval in the `npm`
+#                   environment, and npm attaches provenance pointing at this commit.
+#
+# Unit tests only: the contract suite needs a community key and reaches the real API, so it is
+# never run here. Every job is guarded to the mirror, so the same file in the private source
+# repository runs nothing.
+
+name: release
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+
+permissions: {}
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    if: github.repository == 'unihub-tr/community-sdk'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          package-manager-cache: false
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+      - run: node scripts/check-release.mjs
+
+  publish:
+    needs: verify
+    if: github.repository == 'unihub-tr/community-sdk' && startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    environment: npm
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          package-manager-cache: false
+          registry-url: https://registry.npmjs.org
+      # Trusted publishing needs npm >= 11.5.1; Node 22 bundles npm 10.
+      - run: npm install -g npm@11.17.0
+      - name: npm >= 11.5.1
+        run: |
+          v="$(npm -v)"
+          node -e 'const [a,b,c]=process.argv[1].split(".").map(Number); process.exit(a>11||(a===11&&(b>5||(b===5&&c>=1)))?0:1)' "$v" \
+            || { echo "npm $v is older than 11.5.1"; exit 1; }
+          echo "npm $v"
+      - name: tag matches package.json
+        run: |
+          want="v$(node -p 'require("./package.json").version')"
+          [ "$GITHUB_REF_NAME" = "$want" ] || { echo "tag $GITHUB_REF_NAME != $want"; exit 1; }
+      - run: npm ci
+      # prepublishOnly re-runs typecheck, unit tests, build and the release check.
+      - run: npm publish

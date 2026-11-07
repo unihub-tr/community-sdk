@@ -1,0 +1,470 @@
+<!doctype html>
+<!--
+  UniHub club site — starter template (unihub-community-sdk 0.1.3)
+  ================================================================
+
+  One file, no build step, no server code. It lists your club's public UniHub events, shows
+  their details, signs visitors in with UniHub, and lets them join, apply and see their ticket.
+
+  1. SET UP
+     - In <script> below, set CONFIG.key to your club's publishable key (uhpk_live_...) and
+       CONFIG.clubName to your club's name. The publishable key is safe in a web page.
+       NEVER put the master key in this file, in a repository or in a chat.
+     - In <style> below, change the --club-* variables: colours, corner radius, logo.
+
+  2. TRY IT LOCALLY (not by double-click)
+     A page opened from disk (file://) has no origin, so UniHub refuses it. Serve the folder on
+     port 5173 instead, then open http://localhost:5173 :
+         npx serve -l 5173          or          python -m http.server 5173
+     Until club self-service keys exist, UniHub issues every key with http://localhost:5173
+     included for local testing.
+
+  3. DEPLOY
+     Any static host works; nothing to build:
+     - Netlify or Vercel: upload the folder. Use the production address, not a preview address
+       (each preview deploy has its own address, which your key does not allow).
+     - Your own domain: https://kulubunuz.org and https://www.kulubunuz.org are TWO addresses.
+     - GitHub Pages ONLY with a custom domain or a club organization account
+       (https://<club-org>.github.io). A personal https://<username>.github.io is one address
+       shared by every repository of that user, so any of their pages could use your key.
+
+  4. SEND US YOUR SITE'S ADDRESS
+     E-mail the exact address (scheme + host, no path, e.g. https://kulubunuz.org) and your
+     club's name to  unihubtrdeu@gmail.com . UniHub adds it to your key; sign-in then works there.
+
+  Rules this file keeps (keep them if you edit it):
+  - Text from the server is always inserted as text (textContent), never as HTML.
+  - The ticket's QR content is never logged, stored or sent anywhere; it exists only while the
+    ticket dialog is open.
+  - Both external scripts are pinned to an exact version with an integrity hash. To upgrade the
+    SDK, take the new <script> tag from the README of that version.
+-->
+<html lang="tr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="referrer" content="no-referrer">
+  <title>Kulüp Etkinlikleri</title>
+  <style>
+    /* ---- Club look: change these ------------------------------------------------------ */
+    :root {
+      --club-primary: #1f4fd1;        /* buttons, links, header accent */
+      --club-primary-text: #ffffff;   /* text on --club-primary */
+      --club-accent: #e8eefc;         /* tags, highlighted backgrounds */
+      --club-bg: #f6f7f9;             /* page background */
+      --club-surface: #ffffff;        /* cards and dialogs */
+      --club-text: #1b1f24;           /* body text */
+      --club-muted: #5b6573;          /* secondary text */
+      --club-radius: 12px;            /* corner radius */
+      --club-logo: none;              /* e.g. url("logo.png"); none hides the logo */
+    }
+    /* ---- Layout (no need to change) ---------------------------------------------------- */
+    * { box-sizing: border-box; }
+    [hidden] { display: none !important; } /* keeps the hidden attribute stronger than display rules below */
+    body { margin: 0; background: var(--club-bg); color: var(--club-text); font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+    a { color: var(--club-primary); }
+    :focus-visible { outline: 3px solid var(--club-primary); outline-offset: 2px; }
+    header { background: var(--club-surface); border-bottom: 3px solid var(--club-primary); }
+    .bar { max-width: 960px; margin: 0 auto; padding: 12px 16px; display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+    .brand { display: flex; align-items: center; gap: 10px; margin-right: auto; color: inherit; text-decoration: none; min-width: 0; }
+    .logo { width: 40px; height: 40px; border-radius: 8px; background: var(--club-logo) center / contain no-repeat; flex: none; }
+    .brand h1 { font-size: 1.15rem; margin: 0; overflow-wrap: anywhere; }
+    .who { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .avatar { width: 32px; height: 32px; border-radius: 50%; object-fit: cover; background: var(--club-accent); }
+    main { max-width: 960px; margin: 0 auto; padding: 16px; }
+    button, .button { font: inherit; border: 0; border-radius: var(--club-radius); padding: 10px 16px; background: var(--club-primary); color: var(--club-primary-text); cursor: pointer; text-decoration: none; display: inline-block; }
+    button.secondary { background: var(--club-accent); color: var(--club-text); }
+    button:disabled { opacity: .6; cursor: progress; }
+    .tabs { display: flex; gap: 8px; margin: 0 0 16px; flex-wrap: wrap; }
+    .tabs a { padding: 8px 14px; border-radius: 999px; text-decoration: none; background: var(--club-surface); color: var(--club-text); }
+    .tabs a[aria-current="page"] { background: var(--club-primary); color: var(--club-primary-text); }
+    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px; padding: 0; margin: 0; list-style: none; }
+    .card { background: var(--club-surface); border-radius: var(--club-radius); overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,.08); }
+    .card a { display: block; color: inherit; text-decoration: none; height: 100%; }
+    .card img { width: 100%; aspect-ratio: 16 / 9; object-fit: cover; display: block; background: var(--club-accent); }
+    .card .body { padding: 12px 16px 16px; }
+    .card h3 { margin: 0 0 4px; font-size: 1.05rem; overflow-wrap: anywhere; }
+    .meta { color: var(--club-muted); font-size: .92rem; margin: 2px 0; overflow-wrap: anywhere; }
+    .panel { background: var(--club-surface); border-radius: var(--club-radius); padding: 16px; box-shadow: 0 1px 3px rgba(0,0,0,.08); margin-bottom: 16px; }
+    .detail img.cover { width: 100%; max-height: 360px; object-fit: cover; border-radius: var(--club-radius); display: block; margin-bottom: 16px; }
+    .detail h2 { margin: 0 0 8px; overflow-wrap: anywhere; }
+    .description { white-space: pre-line; overflow-wrap: anywhere; }
+    .tags { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; padding: 0; list-style: none; }
+    .tags li { background: var(--club-accent); border-radius: 999px; padding: 2px 10px; font-size: .85rem; }
+    .actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 8px; }
+    .notice { border-radius: var(--club-radius); padding: 12px 16px; margin-bottom: 16px; background: #fff4e5; color: #5a3600; border: 1px solid #f3c27a; overflow-wrap: anywhere; }
+    .notice.error { background: #fdecec; color: #6b1111; border-color: #f0a3a3; }
+    .notice ol { margin: 8px 0 0; padding-left: 20px; }
+    .notice code { background: rgba(0,0,0,.06); padding: 0 4px; border-radius: 4px; }
+    form label { display: block; margin: 12px 0 4px; font-weight: 600; overflow-wrap: anywhere; }
+    form input, form select { font: inherit; width: 100%; padding: 8px 10px; border: 1px solid #c8ced6; border-radius: 8px; background: #fff; color: #1b1f24; }
+    dialog { border: 0; border-radius: var(--club-radius); padding: 20px; background: var(--club-surface); color: var(--club-text); max-width: min(92vw, 420px); text-align: center; }
+    dialog::backdrop { background: rgba(0,0,0,.55); }
+    dialog img { width: 100%; max-width: 320px; image-rendering: pixelated; background: #fff; }
+    .back { display: inline-block; margin-bottom: 12px; }
+    .empty { color: var(--club-muted); }
+    footer { max-width: 960px; margin: 0 auto; padding: 24px 16px; color: var(--club-muted); font-size: .85rem; }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="bar">
+      <a class="brand" href="#/"><span class="logo" id="logo" aria-hidden="true"></span><h1 id="club-name">Kulüp</h1></a>
+      <div class="who" id="who"></div>
+    </div>
+  </header>
+
+  <main>
+    <div id="notice" role="status" aria-live="polite"></div>
+    <div id="view"></div>
+  </main>
+
+  <footer>Etkinlikler ve giriş <a href="https://www.unihub.tr" rel="noopener">UniHub</a> ile.</footer>
+
+  <dialog id="ticket-dialog" aria-labelledby="ticket-title">
+    <h2 id="ticket-title">Biletim</h2>
+    <p class="meta" id="ticket-event"></p>
+    <img id="ticket-qr" alt="Giriş QR kodu">
+    <p class="meta">Girişte bu kodu okutun. Etkinlikten 1 saat önce ile 24 saat sonrası arasında geçerlidir.</p>
+    <form method="dialog"><button>Kapat</button></form>
+  </dialog>
+
+  <!-- UniHub SDK: exact version + integrity. Take a new tag from the README of the version you upgrade to. -->
+  <script
+    src="https://cdn.jsdelivr.net/npm/unihub-community-sdk@0.1.3/dist/index.global.js"
+    integrity="sha384-CN314NfZP4Lr45Jv7ZtjjscVnMKzteT1KmRb7F0pqeuBmC+foBgHXapphx4B9rTY"
+    crossorigin="anonymous"></script>
+  <!-- QR drawing (qrcode-generator 2.0.4, MIT): exact version + integrity. -->
+  <script
+    src="https://cdn.jsdelivr.net/npm/qrcode-generator@2.0.4/dist/qrcode.js"
+    integrity="sha384-e9EFD6BGC90bkW9aDV5xbbBfzwN7G8YImHao2lfLVKV/hPB0E0go+H3I64h7oHtA"
+    crossorigin="anonymous"></script>
+  <script>
+    // ---- Your club: change these -------------------------------------------------------------
+    const CONFIG = {
+      key: 'uhpk_live_BURAYA_ANAHTARINIZ', // publishable key from UniHub (never the master key)
+      clubName: 'Kulübünüzün Adı',
+      locale: 'tr', // language of error messages from the SDK: 'tr' or 'en'
+    };
+    const CONTACT = 'unihubtrdeu@gmail.com'; // where clubs send their site's address
+    const UNIHUB_APP = 'https://www.unihub.tr'; // where visitors go for what only the app can do
+
+    // ---- Small DOM helpers: every string becomes a text node, never markup ---------------------
+    const $ = (id) => document.getElementById(id);
+    function el(tag, props, ...children) {
+      const node = document.createElement(tag);
+      for (const [k, v] of Object.entries(props || {})) {
+        if (v === undefined || v === null || v === false) continue;
+        if (k === 'class') node.className = v;
+        else if (k === 'on') for (const [type, fn] of Object.entries(v)) node.addEventListener(type, fn);
+        else if (k in node && typeof v !== 'string') node[k] = v;
+        else node.setAttribute(k, v);
+      }
+      return put(node, children);
+    }
+    // The only way content enters the page: strings become text nodes, and empty children
+    // (null, undefined, false, '') are dropped. The DOM's own append() would print "null".
+    function put(node, ...children) {
+      for (const child of children.flat(Infinity)) {
+        if (child === null || child === undefined || child === false || child === '') continue;
+        node.append(child instanceof Node ? child : document.createTextNode(String(child))); // dom-insert-ok
+      }
+      return node;
+    }
+    const clear = (node) => { node.replaceChildren(); return node; }; // dom-insert-ok (no children)
+    // Only https images from the server; anything else is dropped.
+    const safeImage = (url) => (typeof url === 'string' && /^https:\/\//i.test(url) ? url : null);
+
+    const dateFormat = new Intl.DateTimeFormat('tr-TR', { dateStyle: 'long', timeStyle: 'short', timeZone: 'Europe/Istanbul' });
+    const formatDate = (iso) => {
+      if (!iso) return 'Tarih belirtilmedi';
+      const d = new Date(iso);
+      return Number.isNaN(d.getTime()) ? iso : dateFormat.format(d);
+    };
+
+    // ---- Notices --------------------------------------------------------------------------------
+    function notice(content, kind) {
+      const box = clear($('notice'));
+      if (content) put(box, el('div', { class: 'notice' + (kind === 'error' ? ' error' : '') }, content));
+    }
+    function setupNotice(reason) {
+      const origin = location.origin === 'null' ? '(dosyadan açıldı: adres yok)' : location.origin;
+      notice([
+        el('strong', {}, reason),
+        el('ol', {},
+          el('li', {}, 'Dosyanın başındaki ', el('code', {}, 'CONFIG.key'), ' alanına UniHub\'ın verdiği yayınlanabilir anahtarı (', el('code', {}, 'uhpk_live_…'), ') yazın. Ana anahtarı (master key) asla yazmayın.'),
+          el('li', {}, 'Sayfayı çift tıklayarak değil, 5173 portunda bir sunucuyla açın: ', el('code', {}, 'npx serve -l 5173'), ' → ', el('code', {}, 'http://localhost:5173'), '.'),
+          el('li', {}, 'Siteyi yayınladıktan sonra tam adresini (ör. ', el('code', {}, 'https://kulubunuz.org'), ') ', el('a', { href: 'mailto:' + CONTACT }, CONTACT), ' adresine gönderin.'),
+        ),
+        el('p', { class: 'meta' }, 'Bu sayfanın adresi: ', el('code', {}, origin)),
+      ]);
+    }
+    function showError(err) {
+      const code = err && err.code;
+      if (code === 'KEY_INVALID') return setupNotice('Anahtar geçersiz ya da devre dışı.');
+      if (code === 'ORIGIN_NOT_ALLOWED') return setupNotice('Bu adres anahtarın izinli adresleri arasında değil.');
+      if (code === 'SIGN_IN_CANCELLED') return notice(null);
+      const text = (err && err.message) || 'Beklenmeyen bir hata oluştu.';
+      if (code === 'NOT_REGISTERED') {
+        return notice([text + ' ', el('button', { class: 'secondary', on: { click: () => unihub.auth.register().then(() => notice(null), showError) } }, 'UniHub\'a kayıt ol')], 'error');
+      }
+      if (code === 'MEMBERS_ONLY') {
+        return notice([text + ' ', el('a', { href: UNIHUB_APP, rel: 'noopener' }, 'UniHub\'da kulübe üye olun')], 'error');
+      }
+      notice(text, 'error');
+    }
+
+    // Disables a button while its promise runs.
+    function busy(button, work) {
+      button.disabled = true;
+      return Promise.resolve().then(work).finally(() => { button.disabled = false; });
+    }
+
+    // ---- Start ----------------------------------------------------------------------------------
+    document.title = CONFIG.clubName + ' — Etkinlikler';
+    $('club-name').textContent = CONFIG.clubName;
+    if (getComputedStyle(document.documentElement).getPropertyValue('--club-logo').trim() === 'none') $('logo').hidden = true;
+
+    let unihub = null;
+    let renderId = 0; // ignores answers that arrive after the visitor moved on
+    const placeholder = !/^uhpk_/.test(CONFIG.key) || /BURAYA/.test(CONFIG.key);
+    if (typeof UniHub === 'undefined') {
+      notice('UniHub SDK yüklenemedi. İnternet bağlantınızı ve betik etiketinin sürüm/integrity değerini kontrol edin.', 'error');
+    } else if (placeholder) {
+      setupNotice('Kurulum tamamlanmadı: anahtar girilmemiş.');
+    } else {
+      try {
+        // 'sessionStorage': the sign-in survives a reload and a redirect sign-in in this tab, and
+        // ends when the tab closes. The SDK default, 'memory', signs the visitor out on every
+        // reload. This page loads only the two pinned scripts above, so keeping the session in
+        // the tab is a reasonable trade; do not add other third-party scripts to it.
+        unihub = UniHub.createUniHub({ key: CONFIG.key, locale: CONFIG.locale, session: 'sessionStorage' });
+      } catch (err) {
+        showError(err);
+      }
+    }
+
+    if (unihub) {
+      unihub.auth.onChange(() => { renderWho(); route(); });
+      // Finishes a redirect sign-in when the page comes back from UniHub.
+      unihub.auth.handleRedirect().catch(showError);
+      renderWho();
+    }
+    window.addEventListener('hashchange', route);
+    route();
+
+    // ---- Header: who is signed in ---------------------------------------------------------------
+    function signIn(button) {
+      busy(button, () => unihub.auth.signIn().then(() => notice(null), (err) => {
+        // A blocked pop-up: go to UniHub's page in this tab instead and come back.
+        if (err && err.code === 'POPUP_BLOCKED') return unihub.auth.signIn({ mode: 'redirect' });
+        showError(err);
+      }));
+    }
+    function renderWho() {
+      const who = clear($('who'));
+      if (!unihub) return;
+      const visitor = unihub.auth.current();
+      if (!visitor) {
+        const b = el('button', {}, 'UniHub ile giriş');
+        b.addEventListener('click', () => signIn(b));
+        put(who, b);
+        return;
+      }
+      const avatar = safeImage(visitor.avatarUrl);
+      if (avatar) put(who, el('img', { class: 'avatar', src: avatar, alt: '', referrerpolicy: 'no-referrer' }));
+      const out = el('button', { class: 'secondary' }, 'Çıkış');
+      out.addEventListener('click', () => busy(out, () => unihub.auth.signOut()));
+      put(who, el('span', {}, visitor.displayName), out);
+    }
+
+    // ---- Routing: #/ upcoming · #/gecmis past · #/etkinlik/<id> detail -------------------------
+    function route() {
+      if ($('ticket-dialog').open) $('ticket-dialog').close();
+      const view = clear($('view'));
+      if (!unihub) return;
+      const id = ++renderId;
+      const hash = location.hash || '#/';
+      const match = /^#\/etkinlik\/(\d+)$/.exec(hash);
+      if (match) return renderDetail(view, Number(match[1]), id);
+      renderList(view, hash === '#/gecmis' ? 'past' : 'upcoming', id);
+    }
+
+    // ---- Events list ----------------------------------------------------------------------------
+    function renderList(view, when, id) {
+      put(view, el('nav', { class: 'tabs', 'aria-label': 'Etkinlikler' },
+        el('a', { href: '#/', 'aria-current': when === 'upcoming' ? 'page' : null }, 'Yaklaşan etkinlikler'),
+        el('a', { href: '#/gecmis', 'aria-current': when === 'past' ? 'page' : null }, 'Geçmiş etkinlikler'),
+      ));
+      const list = el('ul', { class: 'grid' });
+      const status = el('p', { class: 'empty' }, 'Yükleniyor…');
+      const more = el('button', { class: 'secondary', hidden: true }, 'Daha fazla');
+      put(view, list, status, el('div', { class: 'actions' }, more));
+      let page = 0;
+      const load = () => unihub.events.list({ when, page, size: 12 }).then((result) => {
+        if (id !== renderId) return;
+        status.textContent = '';
+        if (result.totalItems === 0) status.textContent = when === 'past' ? 'Geçmiş etkinlik yok.' : 'Şu an yaklaşan etkinlik yok.';
+        for (const event of result.items) put(list, card(event));
+        page = result.page + 1;
+        more.hidden = page >= result.totalPages;
+      }, (err) => { if (id === renderId) { status.textContent = ''; showError(err); } });
+      more.addEventListener('click', () => busy(more, load));
+      load();
+    }
+    function card(event) {
+      const image = safeImage(event.imageUrl);
+      return el('li', { class: 'card' },
+        el('a', { href: '#/etkinlik/' + event.id },
+          image ? el('img', { src: image, alt: '', loading: 'lazy', referrerpolicy: 'no-referrer' }) : null,
+          el('div', { class: 'body' },
+            el('h3', {}, event.title),
+            el('p', { class: 'meta' }, formatDate(event.startsAt)),
+            event.location ? el('p', { class: 'meta' }, event.location) : null,
+          ),
+        ),
+      );
+    }
+
+    // ---- Event detail ---------------------------------------------------------------------------
+    function renderDetail(view, eventId, id) {
+      put(view, el('a', { class: 'back', href: '#/' }, '← Tüm etkinlikler'));
+      const box = el('article', { class: 'panel detail' }, el('p', { class: 'empty' }, 'Yükleniyor…'));
+      put(view, box);
+      unihub.events.get(eventId).then((event) => {
+        if (id !== renderId) return;
+        document.title = event.title + ' — ' + CONFIG.clubName;
+        const image = safeImage(event.imageUrl);
+        const tags = [];
+        if (event.membersOnly) tags.push('Yalnızca kulüp üyeleri');
+        if (event.verifiedOnly) tags.push('Doğrulanmış e-posta gerekli');
+        if (event.approvalRequired) tags.push('Katılım onayla');
+        if (event.requiresForm) tags.push('Başvuru formu');
+        if (event.status === 'PAST') tags.push('Geçmiş etkinlik');
+        const attendance = el('section', { 'aria-label': 'Katılım' });
+        put(clear(box),
+          image ? el('img', { class: 'cover', src: image, alt: '', referrerpolicy: 'no-referrer' }) : null,
+          el('h2', {}, event.title),
+          el('p', { class: 'meta' }, formatDate(event.startsAt)),
+          event.location ? el('p', { class: 'meta' }, event.location) : null,
+          event.registrationDeadline && event.status !== 'PAST' ? el('p', { class: 'meta' }, 'Son katılım: ' + formatDate(event.registrationDeadline)) : null,
+          tags.length ? el('ul', { class: 'tags' }, tags.map((t) => el('li', {}, t))) : null,
+          el('p', { class: 'description' }, event.description || ''),
+          attendance,
+        );
+        if (event.status !== 'PAST') renderAttendance(attendance, event, id);
+      }, (err) => {
+        if (id !== renderId) return;
+        put(clear(box), el('p', { class: 'empty' }, err && err.code === 'EVENT_NOT_FOUND' ? 'Etkinlik bulunamadı.' : 'Etkinlik yüklenemedi.'));
+        if (!(err && err.code === 'EVENT_NOT_FOUND')) showError(err);
+      });
+    }
+
+    // ---- Attendance: join / apply / leave / ticket ----------------------------------------------
+    function renderAttendance(box, event, id) {
+      clear(box);
+      if (!unihub.auth.current()) {
+        const b = el('button', {}, 'Katılmak için UniHub ile giriş yap');
+        b.addEventListener('click', () => signIn(b));
+        put(box, el('div', { class: 'actions' }, b));
+        return;
+      }
+      put(box, el('p', { class: 'empty' }, 'Katılım durumu yükleniyor…'));
+      const refresh = () => renderAttendance(box, event, id);
+      unihub.attendance.status(event.id).then(({ status }) => {
+        if (id !== renderId) return;
+        const actions = el('div', { class: 'actions' });
+        put(clear(box), actions);
+        const button = (label, cls, work) => {
+          const b = el('button', { class: cls }, label);
+          b.addEventListener('click', () => busy(b, work));
+          put(actions, b);
+          return b;
+        };
+        const leave = () => unihub.attendance.leave(event.id).then(() => { notice(null); refresh(); }, showError);
+        if (status === 'JOINED') {
+          put(actions, el('strong', {}, 'Katılımınız onaylandı.'));
+          button('Biletim', '', () => openTicket(event));
+          button('Katılımı iptal et', 'secondary', leave);
+        } else if (status === 'PENDING_APPROVAL') {
+          put(actions, el('strong', {}, 'Onay bekleniyor.'));
+          button('Vazgeç', 'secondary', leave);
+        } else {
+          button(event.requiresForm ? 'Başvur' : 'Katıl', '', () => {
+            if (event.requiresForm) return renderForm(box, event, id, refresh);
+            return unihub.attendance.join(event.id).then(() => { notice(null); refresh(); }, (err) => {
+              if (err && err.code === 'FORM_REQUIRED') return renderForm(box, event, id, refresh);
+              showError(err);
+            });
+          });
+        }
+      }, (err) => { if (id === renderId) { clear(box); showError(err); } });
+    }
+
+    function renderForm(box, event, id, refresh) {
+      return unihub.attendance.form(event.id).then((form) => {
+        if (id !== renderId) return;
+        clear(box);
+        if (form.appRequired) {
+          put(box, el('p', {}, 'Bu başvuru belge istiyor; belgeyi yalnızca UniHub uygulaması yükleyebilir. ',
+            el('a', { href: UNIHUB_APP, rel: 'noopener' }, 'UniHub uygulamasından başvurun'), '.'));
+          return;
+        }
+        const fields = [];
+        const formEl = el('form', { novalidate: true });
+        form.questions.forEach((q, i) => {
+          const inputId = 'q-' + q.id + '-' + i;
+          let input;
+          if (q.type === 'BOOLEAN') {
+            input = el('select', { id: inputId },
+              el('option', { value: '' }, 'Seçin'),
+              el('option', { value: 'true' }, 'Evet'),
+              el('option', { value: 'false' }, 'Hayır'));
+          } else {
+            const type = q.type === 'PHONE' ? 'tel' : q.type === 'EMAIL' ? 'email' : 'text';
+            input = el('input', { id: inputId, type, maxLength: 1024, autocomplete: q.type === 'EMAIL' ? 'email' : q.type === 'PHONE' ? 'tel' : 'off' });
+          }
+          fields.push({ questionId: q.id, input });
+          put(formEl, el('label', { for: inputId }, q.label), input);
+        });
+        if (form.questions.length === 0) put(formEl, el('p', {}, 'Bu etkinliğin sorusu yok; başvurunuzu gönderebilirsiniz.'));
+        const submit = el('button', { type: 'submit' }, 'Başvuruyu gönder');
+        const cancel = el('button', { type: 'button', class: 'secondary' }, 'Vazgeç');
+        cancel.addEventListener('click', refresh);
+        put(formEl, el('div', { class: 'actions' }, submit, cancel));
+        formEl.addEventListener('submit', (e) => {
+          e.preventDefault();
+          const answers = fields.map((f) => ({ questionId: f.questionId, answer: f.input.value.slice(0, 1024) }));
+          busy(submit, () => unihub.attendance.apply(event.id, answers).then((result) => {
+            notice(result.status === 'PENDING_APPROVAL' ? 'Başvurunuz alındı; kulüp onayını bekliyor.' : 'Başvurunuz alındı; katılımınız onaylandı.');
+            refresh();
+          }, (err) => {
+            if (err && err.code === 'ALREADY_JOINED') { notice('Bu etkinliğe zaten katılıyorsunuz.'); return refresh(); }
+            if (err && err.code === 'APP_REQUIRED') return renderForm(box, event, id, refresh);
+            showError(err);
+          }));
+        });
+        put(box, el('h3', {}, 'Başvuru formu'), formEl);
+      }, showError);
+    }
+
+    // ---- Ticket: the QR content lives only in this function and in the open dialog -------------
+    function openTicket(event) {
+      return unihub.attendance.ticket(event.id).then((ticket) => {
+        if (typeof qrcode === 'undefined') return notice('QR kütüphanesi yüklenemedi; sayfayı yenileyin.', 'error');
+        const qr = qrcode(0, 'M');
+        qr.addData(ticket.qrPayload);
+        qr.make();
+        $('ticket-qr').src = qr.createDataURL(8, 32);
+        $('ticket-event').textContent = event.title + ' · ' + formatDate(event.startsAt);
+        $('ticket-dialog').showModal();
+      }, (err) => {
+        if (err && err.code === 'TICKET_UNAVAILABLE') return notice('Biletiniz katılımınız onaylanınca görünür.');
+        showError(err);
+      });
+    }
+    // Closing the dialog drops the image, the only copy of the QR content on the page.
+    $('ticket-dialog').addEventListener('close', () => { $('ticket-qr').removeAttribute('src'); });
+  </script>
+</body>
+</html>

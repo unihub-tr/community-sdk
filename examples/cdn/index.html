@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>UniHub SDK — CDN örneği</title>
+  <style>body { font: 15px/1.5 system-ui, sans-serif; max-width: 40rem; margin: 2rem auto; padding: 0 1rem; } code { background: #eee; padding: 0 .25em; }</style>
+</head>
+<body>
+  <h1>CDN örneği</h1>
+  <p>README'deki <code>&lt;script&gt;</code> parçasının aynısı: jsDelivr'dan sabit sürüm + SRI. Anahtarı adrese ekleyin: <code>?key=uhpk_…</code></p>
+  <p id="state">Yükleniyor…</p>
+  <ul id="events"></ul>
+
+  <!-- Same URL and integrity as README.md "Kurulum"; scripts/check-release.mjs checks the README copy. -->
+  <script
+    src="https://cdn.jsdelivr.net/npm/unihub-community-sdk@0.1.3/dist/index.global.js"
+    integrity="sha384-CN314NfZP4Lr45Jv7ZtjjscVnMKzteT1KmRb7F0pqeuBmC+foBgHXapphx4B9rTY"
+    crossorigin="anonymous"></script>
+  <script>
+    const state = document.getElementById('state');
+    const key = new URLSearchParams(location.search).get('key');
+    if (typeof UniHub === 'undefined') {
+      state.textContent = 'SDK yüklenmedi: ağ hatası ya da integrity uyuşmazlığı (konsola bakın).';
+    } else if (!key) {
+      state.textContent = 'SDK ' + UniHub.SDK_VERSION + ' yüklendi. Etkinlikler için ?key=uhpk_… ekleyin.';
+    } else {
+      const unihub = UniHub.createUniHub({ key, locale: 'tr' });
+      unihub.events.list({ when: 'upcoming' }).then((page) => {
+        state.textContent = 'SDK ' + UniHub.SDK_VERSION + ' — ' + page.totalItems + ' yaklaşan etkinlik';
+        for (const e of page.items) {
+          const li = document.createElement('li');
+          li.textContent = e.title + (e.startsAt ? ' — ' + e.startsAt : '');
+          document.getElementById('events').append(li);
+        }
+      }, (err) => { state.textContent = 'Hata: ' + err.code + ' — ' + err.message; });
+    }
+  </script>
+</body>
+</html>

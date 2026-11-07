@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>UniHub SDK — örnek site</title>
+  <style>
+    body { font: 15px/1.5 system-ui, sans-serif; max-width: 760px; margin: 24px auto; padding: 0 16px; }
+    fieldset { margin: 12px 0; border: 1px solid #ccc; border-radius: 6px; }
+    button { margin: 4px 4px 4px 0; }
+    input[type=text] { width: 22em; }
+    pre { background: #f4f4f4; padding: 8px; border-radius: 6px; white-space: pre-wrap; max-height: 320px; overflow: auto; }
+    #who { font-weight: 600; }
+  </style>
+</head>
+<body>
+  <h1>UniHub SDK — örnek site</h1>
+  <p>Yerel geliştirme sayfası (<code>http://localhost:5173</code>). Anahtar depoya yazılmaz: kutuya ya da <code>?key=</code> ile girin.</p>
+
+  <fieldset>
+    <legend>Kurulum</legend>
+    <label>Anahtar <input id="key" type="text" placeholder="uhpk_live_…" autocomplete="off"></label>
+    <label>Oturum
+      <select id="session">
+        <option value="memory">memory (varsayılan)</option>
+        <option value="sessionStorage">sessionStorage</option>
+        <option value="localStorage">localStorage</option>
+      </select>
+    </label>
+    <button id="init">Başlat</button>
+  </fieldset>
+
+  <fieldset>
+    <legend>Giriş</legend>
+    <div>Ziyaretçi: <span id="who">—</span></div>
+    <button id="popup">UniHub ile giriş (popup)</button>
+    <button id="redirect">UniHub ile giriş (redirect)</button>
+    <button id="register">Kayıt ol</button>
+    <button id="signout">Çıkış</button>
+  </fieldset>
+
+  <fieldset>
+    <legend>Etkinlikler</legend>
+    <button id="list">Etkinlikleri listele</button>
+    <label>Etkinlik no <input id="eventId" type="text" size="6"></label>
+    <button id="join">Katıl</button>
+    <button id="status">Durum</button>
+    <button id="leave">Ayrıl</button>
+    <button id="ticket">Bilet</button>
+    <button id="form">Form</button>
+  </fieldset>
+
+  <fieldset>
+    <legend>Başvuru formu</legend>
+    <div id="questions">Önce "Form" ile soruları yükleyin.</div>
+    <button id="apply">Başvur</button>
+  </fieldset>
+
+  <pre id="log"></pre>
+
+  <script src="/dist/index.global.js"></script>
+  <script>
+    const $ = (id) => document.getElementById(id);
+    const log = (label, value) => {
+      const line = `[${new Date().toLocaleTimeString()}] ${label}` + (value === undefined ? '' : ` ${JSON.stringify(value)}`);
+      $('log').textContent = line + '\n' + $('log').textContent;
+    };
+    const fail = (label) => (e) => log(`${label} HATA`, { code: e && e.code, status: e && e.status, message: e && e.message });
+
+    const params = new URLSearchParams(location.search);
+    $('key').value = params.get('key') || sessionStorage.getItem('example:key') || '';
+    $('session').value = sessionStorage.getItem('example:session') || 'memory';
+
+    let unihub = null;
+    let off = null;
+    const show = (v) => ($('who').textContent = v ? `${v.displayName} (#${v.userId}${v.emailVerified ? ', e-posta doğrulanmış' : ''})` : '—');
+
+    function init() {
+      const key = $('key').value.trim();
+      const session = $('session').value;
+      sessionStorage.setItem('example:key', key);
+      sessionStorage.setItem('example:session', session);
+      if (off) off();
+      try {
+        unihub = UniHub.createUniHub({ key, session });
+      } catch (e) {
+        unihub = null;
+        return fail('createUniHub')(e);
+      }
+      off = unihub.auth.onChange((v) => { log('onChange', v); show(v); });
+      show(unihub.auth.current());
+      log('başlatıldı', { session, current: unihub.auth.current() });
+      unihub.auth.handleRedirect().then((v) => v && log('handleRedirect', v), fail('handleRedirect'));
+    }
+    const need = () => unihub || (log('önce Başlat'), null);
+
+    $('init').onclick = init;
+    $('popup').onclick = () => need() && unihub.auth.signIn().then((v) => log('signIn', v), fail('signIn'));
+    $('redirect').onclick = () => need() && unihub.auth.signIn({ mode: 'redirect' }).catch(fail('signIn redirect'));
+    $('register').onclick = () => need() && unihub.auth.register().then((v) => log('register', v), fail('register'));
+    $('signout').onclick = () => need() && unihub.auth.signOut().then(() => log('signOut'));
+    $('list').onclick = () => need() && unihub.events.list().then(
+      (page) => log('events', page.items.map((e) => ({ id: e.id, title: e.title, status: e.status }))),
+      fail('events.list'));
+    $('join').onclick = () => need() && unihub.attendance.join(Number($('eventId').value)).then((r) => log('join', r), fail('join'));
+    $('status').onclick = () => need() && unihub.attendance.status(Number($('eventId').value)).then((r) => log('status', r), fail('status'));
+    $('leave').onclick = () => need() && unihub.attendance.leave(Number($('eventId').value)).then(() => log('leave: tamam'), fail('leave'));
+    // The ticket value is never printed or stored here: only its length is logged (plan D4).
+    $('ticket').onclick = () => need() && unihub.attendance.ticket(Number($('eventId').value)).then(
+      (t) => log(`ticket: received (${t.qrPayload.length} chars)`), fail('ticket'));
+
+    $('form').onclick = () => need() && unihub.attendance.form(Number($('eventId').value)).then((f) => {
+      log('form', f);
+      const box = $('questions');
+      box.textContent = f.questions.length ? '' : 'Bu etkinliğin formu yok.';
+      if (f.appRequired) box.textContent = 'Bu form belge istiyor: başvuru UniHub uygulamasından yapılmalı (APP_REQUIRED).';
+      for (const q of f.questions) {
+        const label = document.createElement('label');
+        label.style.display = 'block';
+        label.textContent = `${q.label} (${q.type}) `;
+        const input = document.createElement(q.options ? 'select' : 'input');
+        input.dataset.questionId = String(q.id);
+        for (const o of q.options || []) input.append(new Option(o, o));
+        label.append(input);
+        box.append(label);
+      }
+    }, fail('form'));
+    $('apply').onclick = () => {
+      if (!need()) return;
+      const answers = [...$('questions').querySelectorAll('[data-question-id]')]
+        .map((el) => ({ questionId: Number(el.dataset.questionId), answer: el.value }));
+      unihub.attendance.apply(Number($('eventId').value), answers).then((r) => log('apply', r), fail('apply'));
+    };
+
+    if ($('key').value) init();
+  </script>
+</body>
+</html>

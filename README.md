@@ -17,7 +17,8 @@ Bu README, SDK'nın kılavuzudur. Güncel sürümü her zaman npm sayfasındadı
 
 👉 **[unihub-community-sdk — npm](https://www.npmjs.com/package/unihub-community-sdk)**
 
-Sürüm notları paketteki `CHANGELOG.md` dosyasındadır.
+Sürüm notları paketteki `CHANGELOG.md` dosyasındadır. Anahtar alma, barındırma ve koşullar için
+UniHub'ın geliştirici sayfası: **[unihub.tr/gelistiriciler](https://www.unihub.tr/gelistiriciler)**.
 
 ## 🛠️ Kurulum
 
@@ -31,8 +32,8 @@ Derleme adımı olmayan sayfalar için (`<script>` etiketi, `window.UniHub`):
 
 ```html
 <script
-  src="https://cdn.jsdelivr.net/npm/unihub-community-sdk@0.1.3/dist/index.global.js"
-  integrity="sha384-CN314NfZP4Lr45Jv7ZtjjscVnMKzteT1KmRb7F0pqeuBmC+foBgHXapphx4B9rTY"
+  src="https://cdn.jsdelivr.net/npm/unihub-community-sdk@0.1.4/dist/index.global.js"
+  integrity="sha384-45g68YBfqzPT0Ua8NhzkZH1CN1/TunN4MV2yPMwGZI7Co5bkLbSjJgDHasMldT7q"
   crossorigin="anonymous"></script>
 <script>
   const unihub = UniHub.createUniHub({ key: "uhpk_live_sizin_topluluk_anahtariniz" });
@@ -40,18 +41,21 @@ Derleme adımı olmayan sayfalar için (`<script>` etiketi, `window.UniHub`):
 </script>
 ```
 
-- Adresteki sürümü (`@0.1.3`) **sabit** tutun; `@latest` ya da `@0` kullanmayın. `integrity`
+- Adresteki sürümü (`@0.1.4`) **sabit** tutun; `@latest` ya da `@0` kullanmayın. `integrity`
   değeri yalnızca o sürümün dosyasına uyar: dosya değişirse tarayıcı betiği çalıştırmaz.
 - Sürüm yükseltirken adresi ve `integrity` değerini birlikte, bu README'nin o sürümdeki
   hâlinden alın.
 
 ## 🧩 Hazır site şablonu
 
+> **Geliştiriciniz yok mu?** Kendi alan adınız ve tasarımınızla sitenizi UniHub barındırsın:
+> [unihubtrdeu@gmail.com](mailto:unihubtrdeu@gmail.com).
+
 Kod yazmadan başlamak için: **tek bir `index.html`**, derleme adımı ve sunucu kodu yok. Kulübünüzün
 etkinliklerini listeler, ayrıntılarını gösterir, "UniHub ile giriş" yaptırır; ziyaretçi katılır,
 başvuru formunu doldurur ve biletini (QR) görür. Arayüz Türkçedir.
 
-👉 **[Şablonu indirin](https://cdn.jsdelivr.net/npm/unihub-community-sdk@0.1.3/starter/index.html)**
+👉 **[Şablonu indirin](https://cdn.jsdelivr.net/npm/unihub-community-sdk@0.1.4/starter/index.html)**
 (sayfayı "Farklı kaydet" ile `index.html` olarak kaydedin; pakette `starter/index.html`).
 
 1. **Ayarlayın.** Dosyanın başındaki `CONFIG.key` alanına yayınlanabilir anahtarınızı
@@ -119,7 +123,8 @@ reddediyor. Aynı anda birkaç çağrı yapmak (`Promise.all`) güvenlidir.
   Anahtarlar yerel test için `http://localhost:5173` ile birlikte verilir; başka bir yerel
   adres gerekirse isteyin.
 - **Anahtar istemek ya da adres ekletmek için:** kulübünüzün adı ve sitenizin tam adresleriyle
-  [unihubtrdeu@gmail.com](mailto:unihubtrdeu@gmail.com) adresine yazın.
+  [unihubtrdeu@gmail.com](mailto:unihubtrdeu@gmail.com) adresine yazın. Adımlar
+  [geliştirici sayfasında](https://www.unihub.tr/gelistiriciler) anlatılır.
 - Listede olmayan bir adresten gelen istek `ORIGIN_NOT_ALLOWED` ile reddedilir. Adres
   listesi boş olan bir anahtar hiçbir tarayıcıdan çalışmaz.
 - Sunucu tarafında (SSR) yapılan okumalar `Origin` başlığı göndermediği için kabul edilir;
@@ -229,7 +234,10 @@ onu kullanır: `qrcode(0, "M")`, `addData(qrPayload)`, `make()`, `createDataURL(
 - **Anahtar verilmeden önce** kulübünüzün sahibi (OWNER) ya da yöneticisi (MANAGER),
   UniHub'ın sürümlü **geliştirici koşullarını** kabul eder ve sitenizin **gizlilik
   politikası adresini** verir. Koşulların metni anahtarla birlikte size iletilir; koşullar
-  güncellendiğinde yeni sürümün yeniden kabul edilmesi gerekebilir.
+  güncellendiğinde yeni sürümün yeniden kabul edilmesi gerekebilir. Ayrıntılar
+  [geliştirici sayfasındadır](https://www.unihub.tr/gelistiriciler).
+- **Siteniz UniHub'da barındırılıyorsa** sitenizdeki ziyaretçi verilerinin **veri sorumlusu
+  kulübünüzdür**; UniHub barındırma hizmeti sağlayıcısı olarak **veri işleyen** konumundadır.
 - **Ziyaretçinin girişi, kaydı ve açık rızası UniHub'ın sayfasında** olur
   (`https://www.unihub.tr/connect`). Bu sayfa kulübünüzün adını ve verdiğiniz gizlilik
   politikası adresini gösterir. Siteniz şifreyi, e-postayı, telefonu veya öğrenci

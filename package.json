@@ -1,6 +1,6 @@
 {
   "name": "unihub-community-sdk",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "description": "Official browser SDK for UniHub community websites: public events, sign-in with UniHub, and attendance (join, status, leave, ticket, application forms).",
   "keywords": [
     "unihub",

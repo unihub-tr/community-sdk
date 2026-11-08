@@ -5,6 +5,17 @@ All notable changes to `unihub-community-sdk` are recorded here. The format foll
 [Semantic Versioning](https://semver.org/). While the version is `0.x`, a minor release
 (`0.2.0`) may contain breaking changes; each one is listed here.
 
+## [0.1.4] — 2026-11-08
+
+No API change.
+
+### Changed
+
+- README links to UniHub's developer page, https://www.unihub.tr/gelistiriciler (keys, hosting,
+  terms).
+- README: clubs without a developer can have UniHub host their site, on their own domain and with
+  their own design; for a hosted site the club is the data controller and UniHub the processor.
+
 ## [0.1.3] — 2026-11-07
 
 No API change.
